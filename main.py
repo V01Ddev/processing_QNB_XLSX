@@ -6,14 +6,28 @@ def main():
     df = pd.read_excel(
         file_name,
         header=None,
-        skiprows=lambda x: x in range(0, 13),
         usecols="A:D",
         names=["Date", "Description", "Amount(QAR)", "Balance(QAR)"]
     )
+    df = df.iloc[13:].reset_index(drop=True)
+    df = df[df["Date"].astype(str).str.strip() != "TXN Date"].reset_index(drop=True)
 
-    df["Date"] = pd.to_datetime(df["Date"])
+    # Parse dates strictly as dd/mm/yyyy and report any mismatches.
+    raw_dates = df["Date"]
+    parsed_dates = pd.to_datetime(
+        raw_dates,
+        format="%d/%m/%Y",
+        errors="coerce"
+    )
+    mismatches = parsed_dates.isna()
+    if mismatches.any():
+        print("Date mismatches found (expected dd/mm/yyyy):")
+        print(df.loc[mismatches])
+        raise ValueError("Unparseable date(s) found; expected dd/mm/yyyy.")
 
-    # change the datetime format
+    df["Date"] = parsed_dates
+
+    # Change the datetime format to mm/dd/yyyy for CSV output.
     df["Date"] = df["Date"].dt.strftime("%m/%d/%Y")
 
     df = df.iloc[::-1]
